@@ -1,8 +1,17 @@
+"""
+Used to create Cross Validation for any number of folds for any of the four models described in this approach. Additionally, it balances the data for each task and does some preliminary preprocessing on the text
+Input:
+MTL_Task_Labels_Marshall.csv OR MTL_Task_Labels_Del_Fiol.csv, Final_Retrieved_Clinical_Hedges.csv
+Output:
+CV_Data_ITL, CV_Data_Ensemble, CV_Data_ITL_Ensemble, CV_Data_ITL_Cascade
+"""
+
 import os
 import csv
 from collections import defaultdict
 import random
 import shutil
+import nltk
 
 random.seed(42)
 
@@ -42,14 +51,21 @@ def CreateBERTTypeData(DocList, MTLDict):
             label_list = MTLDict[row[0]].pop()
         else:
             continue
-        if(row[1] == '' and row[2] == ''):
+        if((row[1] == '' and row[2] == '') or row[2] == ''): # Use for Marshall
+        # if (row[1] == '' and row[2] == ''):
             count += 1
             unfound.append(row[0])
             continue
-        task1.append([row[0], ' '.join((row[1] + ' ' + row[2]).split('\n')), label_list[0], 0])
-        task2.append([row[0], ' '.join((row[1] + ' ' + row[2]).split('\n')), label_list[1], 1])
-        task3.append([row[0], ' '.join((row[1] + ' ' + row[2]).split('\n')), label_list[2], 2])
-        task4.append([row[0], ' '.join((row[1] + ' ' + row[2]).split('\n')), label_list[3], 3])
+        # If PT Terms to be included along with Title and Abstract
+        task1.append([row[0], ' '.join((row[3] + row[1] + ' ' + row[2]).split('\n')), label_list[0], 0])
+        task2.append([row[0], ' '.join((row[3] + row[1] + ' ' + row[2]).split('\n')), label_list[1], 1])
+        task3.append([row[0], ' '.join((row[3] + row[1] + ' ' + row[2]).split('\n')), label_list[2], 2])
+        task4.append([row[0], ' '.join((row[3] + row[1] + ' ' + row[2]).split('\n')), label_list[3], 3])
+        # If only Title and Abstract are to be included
+        #task1.append([row[0], ' '.join((row[1] + ' ' + row[2]).split('\n')), label_list[0], 0])
+        #task2.append([row[0], ' '.join((row[1] + ' ' + row[2]).split('\n')), label_list[1], 1])
+        #task3.append([row[0], ' '.join((row[1] + ' ' + row[2]).split('\n')), label_list[2], 2])
+        #task4.append([row[0], ' '.join((row[1] + ' ' + row[2]).split('\n')), label_list[3], 3])
         Answer.append([row[0], ' '.join((row[1] + ' ' + row[2]).split('\n')), label_list[4], 4])
     return task1, task2, task3, task4, Answer
 
@@ -92,25 +108,15 @@ def OversampleData(data):
     count_reqd = dict()
     if('F' in count_labels):
         binary = True
-        #count_reqd['F'] = int(count_labels['F'] * count_labels['T'] / (count_labels['F'] + count_labels['NA']))  if 'NA' in count_labels else count_labels['T']
-        #count_reqd['NA'] = int(count_labels['NA'] * count_labels['T'] / (count_labels['F'] + count_labels['NA'])) if 'NA' in count_labels else 0
-        #count_reqd['T'] = int(count_labels['T'])
-    """
+        count_reqd['F'] = int(count_labels['F'] * count_labels['T'] / (count_labels['F'] + count_labels['NA']))  if 'NA' in count_labels else count_labels['T']
+        count_reqd['NA'] = int(count_labels['NA'] * count_labels['T'] / (count_labels['F'] + count_labels['NA'])) if 'NA' in count_labels else 0
+        count_reqd['T'] = int(count_labels['T'])
     else:
         for label in count_labels:
-            #count_reqd[label] = int((maxCount + minCount) / 2)
+            # count_reqd[label] = int((maxCount + minCount) / 2)
             count_reqd[label] = minCount
-    """
-    for label in count_labels:
-        #count_reqd[label] = int((maxCount + minCount) / 2)
-        count_reqd[label] = minCount
-        if('TRUE' in count_reqd):
-            #print("TRUE: " , count_labels['TRUE'])
-            #print("FALSE: " , count_labels['FALSE'])
-            count_reqd['FALSE'] = int(count_labels['TRUE'] * 10)
-            count_reqd['TRUE'] = int(count_labels['TRUE'] * 10)
     oversampleData = []
-    while(True):
+    while True:
         for row in data:
             if(row[2] not in count_added):
                 if(count_reqd[row[2]] == 0):
@@ -382,7 +388,8 @@ def CreateCrossValidationMTL(task1, task2, task3, task4, Answer, data_dir, batch
 
 
 def main():
-    MTL_Labels = ReadData("MTL_Task_Labels_Marshall.csv")
+    MTL_Labels = ReadData("MTL_Task_Labels_Del_Fiol.csv")
+    # MTL_Labels = ReadData("MTL_Task_Labels_Marshall.csv")
     RetCHData = ReadData("Final_Retrieved_Clinical_Hedges.csv")
     
     RetCHData = ShuffleData(RetCHData)
@@ -406,6 +413,26 @@ def main():
     # CreateCrossValidationMTL(task1, task2, task3, task4, Answer, "CV_Data_MTL",
     #                         batch_size, num_folds=10)
 
+    length = []
+    for row in RetCHData:
+        length.append(len(nltk.word_tokenize(' '.join((row[1] + ' ' + row[2]).split('\n')))))
+    print(RetCHData[0])
+    return length
 
-if(__name__ == '__main__'):
-    main()
+
+if __name__ == '__main__':
+    length = main()
+    # Used to calculate optimium sequence length for data
+    avg = sum(length) / len(length)
+    maximum = max(length)
+    length = list(sorted(length))
+    for i, l in enumerate(length):
+        if l > 384:
+            print("384th Percentile: ", (i / len(length)) * 100)
+            break
+    percentile = 0.95 * len(length)
+    print("95th Percentile: ", length[int(percentile)])
+    percent_list = length[:int(percentile)]
+    print("95th Percentile Avg: ", sum(percent_list) / int(percentile))
+    print("Average: ", avg)
+    print("Maximum: ", maximum)

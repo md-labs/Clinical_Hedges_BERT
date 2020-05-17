@@ -1,3 +1,11 @@
+"""
+Extract Clinical Hedges articles from given Excel file according to conditions set by Marshall / Del Fiol
+Input:
+Clinical Hedges Data - Medline.xls
+Output:
+All_Clincial_Hedges_Articles.csv, MTL_Task_Labels_Marshall.csv
+"""
+
 import os
 import xlrd
 import csv

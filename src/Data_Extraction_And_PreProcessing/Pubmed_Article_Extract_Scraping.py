@@ -1,3 +1,11 @@
+"""
+Given the Article ID, this code retrieves the Abstract, Title, MesH terms and PT Tags from PubMed by web scraping
+Input:
+All_Clincial_Hedges_Articles.csv
+Output:
+Final_Retrieved_Clinical_Hedges_PT.csv
+"""
+
 from bs4 import BeautifulSoup
 import requests
 

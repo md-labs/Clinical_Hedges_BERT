@@ -1,4 +1,13 @@
+"""
+Contains sklearns classification report modified to print precision, recall and f-score with more floating point precision
+(increased floating point precision to 4 decimal points)
+"""
+
 import numpy as np
+from sklearn.utils.multiclass import unique_labels
+from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import f1_score, precision_score, recall_score
+
 
 def classification_report(y_true, y_pred, labels=None, target_names=None,
                           sample_weight=None):
